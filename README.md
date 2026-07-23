@@ -1,5 +1,5 @@
 Swine IoT Analytics: Predictive Health & Water Consumption
-End-to-end predictive IoT analytics pipeline for commercial swine operations.*
+End-to-end predictive IoT analytics pipeline for commercial swine operations.
 
 Executive Summary
 
