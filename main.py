@@ -435,9 +435,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    streamlit
-pandas
-numpy
-matplotlib
-scikit-learn
-prophet
