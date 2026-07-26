@@ -1,26 +1,27 @@
 """
 Swine IoT Analytics: Predictive Health & Water Consumption
 ===================================================
-An end-to-end predictive IoT analytics pipeline for commercial swine operations.
-Detects subclinical illness and infrastructure failures through water consumption analysis.
-
-Phases:
-1. Data Simulation & Feature Engineering
-2. Statistical Anomaly Detection (Rolling Z-Score)
-3. Machine Learning Anomaly Detection (Isolation Forest)
-4. Time Series Forecasting (Facebook Prophet)
-5. Multivariate Anomaly Detection
-6. Financial Impact & ROI Analysis
+Streamlit Web App for predictive IoT analytics pipeline
 """
 
-import os
+import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from prophet import Prophet
+import warnings
 
+warnings.filterwarnings('ignore')
+
+# Page config
+st.set_page_config(
+    page_title="Swine IoT Analytics",
+    page_icon="🐷",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # ============================================================================
 # PHASE 1: DATA SIMULATION & FEATURE ENGINEERING
@@ -29,13 +30,6 @@ from prophet import Prophet
 def simulate_barn_data(days=120, seed=42):
     """
     Simulate a standard 120-day grow-finish cycle for a 1,000-head swine barn.
-    
-    Accounts for:
-    - Biological Growth: Natural scaling of water intake as pigs grow
-    - Daily Variance: Natural fluctuations in drinking behavior
-    - Mechanical Anomalies: Sudden spike (burst water line)
-    - Biological Anomalies: Progressive drop (subclinical disease)
-    - Hardware Anomalies: Complete sensor failure
     """
     np.random.seed(seed)
     dates = pd.date_range(start='2026-01-01', periods=days, freq='D')
@@ -93,7 +87,7 @@ def engineer_features(df):
 
 
 # ============================================================================
-# PHASE 2: STATISTICAL ANOMALY DETECTION (ROLLING Z-SCORE)
+# PHASE 2: STATISTICAL ANOMALY DETECTION
 # ============================================================================
 
 def rolling_zscore_detection(df, window_size=7, z_threshold=2.5):
@@ -107,7 +101,7 @@ def rolling_zscore_detection(df, window_size=7, z_threshold=2.5):
 
 
 # ============================================================================
-# PHASE 3: MACHINE LEARNING ANOMALY DETECTION (ISOLATION FOREST)
+# PHASE 3: MACHINE LEARNING ANOMALY DETECTION
 # ============================================================================
 
 def ml_anomaly_detection(df):
@@ -125,7 +119,7 @@ def ml_anomaly_detection(df):
 
 
 # ============================================================================
-# PHASE 4: TIME SERIES FORECASTING (FACEBOOK PROPHET)
+# PHASE 4: TIME SERIES FORECASTING
 # ============================================================================
 
 def prophet_forecasting(df, periods=7):
@@ -134,11 +128,13 @@ def prophet_forecasting(df, periods=7):
         columns={'Date': 'ds', 'Avg_Daily_Intake_Liters': 'y'}
     )
     
-    m = Prophet(yearly_seasonality=False, daily_seasonality=False, changepoint_prior_scale=0.05)
-    m.fit(prophet_df)
-    
-    future = m.make_future_dataframe(periods=periods)
-    forecast = m.predict(future)
+    with st.spinner('Training Prophet model...'):
+        m = Prophet(yearly_seasonality=False, daily_seasonality=False, 
+                   changepoint_prior_scale=0.05)
+        m.fit(prophet_df)
+        
+        future = m.make_future_dataframe(periods=periods)
+        forecast = m.predict(future)
     
     return m, forecast
 
@@ -227,79 +223,73 @@ def calculate_roi_metrics():
 
 def plot_raw_data(df):
     """Visualize raw simulated water consumption data."""
-    plt.figure(figsize=(12, 6))
-    plt.plot(df['Date'], df['Avg_Daily_Intake_Liters'], marker='o', linestyle='-', 
-             color='#1f77b4', markersize=4)
-    plt.title('Simulated Barn Water Consumption (120-Day Cycle)', fontsize=14)
-    plt.xlabel('Date', fontsize=12)
-    plt.ylabel('Average Daily Intake per Pig (Liters)', fontsize=12)
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(df['Date'], df['Avg_Daily_Intake_Liters'], marker='o', linestyle='-', 
+            color='#1f77b4', markersize=4)
+    ax.set_title('Simulated Barn Water Consumption (120-Day Cycle)', fontsize=14)
+    ax.set_xlabel('Date', fontsize=12)
+    ax.set_ylabel('Average Daily Intake per Pig (Liters)', fontsize=12)
     
-    plt.axvline(x=df['Date'].iloc[35], color='red', linestyle='--', alpha=0.5, 
-                label='Leak (Mechanical)')
-    plt.axvline(x=df['Date'].iloc[75], color='orange', linestyle='--', alpha=0.5, 
-                label='Health Drop (Biological)')
-    plt.axvline(x=df['Date'].iloc[105], color='gray', linestyle='--', alpha=0.5, 
-                label='Sensor Drop (Hardware)')
+    ax.axvline(x=df['Date'].iloc[35], color='red', linestyle='--', alpha=0.5, 
+               label='Leak (Mechanical)')
+    ax.axvline(x=df['Date'].iloc[75], color='orange', linestyle='--', alpha=0.5, 
+               label='Health Drop (Biological)')
+    ax.axvline(x=df['Date'].iloc[105], color='gray', linestyle='--', alpha=0.5, 
+               label='Sensor Drop (Hardware)')
     
-    plt.legend()
-    plt.grid(True, alpha=0.3)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('phase1_raw_data.png', dpi=300, bbox_inches='tight')
-    print("✓ Saved: phase1_raw_data.png")
-    plt.close()
+    return fig
 
 
 def plot_zscore_detection(df):
     """Visualize rolling Z-score anomaly detection."""
-    plt.figure(figsize=(14, 7))
+    fig, ax = plt.subplots(figsize=(14, 7))
     
-    plt.plot(df['Date'], df['Avg_Daily_Intake_Liters'], label='Actual Intake', 
-             color='#1f77b4', marker='o', markersize=4)
-    plt.plot(df['Date'], df['Rolling_Mean'], label='7-Day Expected Baseline', 
-             color='green', linestyle='--')
+    ax.plot(df['Date'], df['Avg_Daily_Intake_Liters'], label='Actual Intake', 
+            color='#1f77b4', marker='o', markersize=4)
+    ax.plot(df['Date'], df['Rolling_Mean'], label='7-Day Expected Baseline', 
+            color='green', linestyle='--')
     
-    plt.fill_between(df['Date'], 
-                     df['Rolling_Mean'] - (2.5 * df['Rolling_Std']),
-                     df['Rolling_Mean'] + (2.5 * df['Rolling_Std']),
-                     color='green', alpha=0.15, label='Expected Range (±2.5 Z)')
+    ax.fill_between(df['Date'], 
+                    df['Rolling_Mean'] - (2.5 * df['Rolling_Std']),
+                    df['Rolling_Mean'] + (2.5 * df['Rolling_Std']),
+                    color='green', alpha=0.15, label='Expected Range (±2.5 Z)')
     
     anomalies = df[df['Anomaly_Flag'] == True]
-    plt.scatter(anomalies['Date'], anomalies['Avg_Daily_Intake_Liters'], 
-                color='red', s=100, zorder=5, label='System Alert Triggered')
+    ax.scatter(anomalies['Date'], anomalies['Avg_Daily_Intake_Liters'], 
+               color='red', s=100, zorder=5, label='System Alert Triggered')
     
-    plt.title('Predictive Herd Health: Rolling Z-Score Anomaly Detection', fontsize=14)
-    plt.xlabel('Date', fontsize=12)
-    plt.ylabel('Average Daily Intake per Pig (Liters)', fontsize=12)
-    plt.legend(loc='upper left')
-    plt.grid(True, alpha=0.3)
+    ax.set_title('Predictive Herd Health: Rolling Z-Score Anomaly Detection', fontsize=14)
+    ax.set_xlabel('Date', fontsize=12)
+    ax.set_ylabel('Average Daily Intake per Pig (Liters)', fontsize=12)
+    ax.legend(loc='upper left')
+    ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('phase2_zscore_detection.png', dpi=300, bbox_inches='tight')
-    print("✓ Saved: phase2_zscore_detection.png")
-    plt.close()
+    return fig
 
 
 def plot_ml_detection(model_df):
     """Visualize Isolation Forest anomaly detection."""
-    plt.figure(figsize=(14, 7))
+    fig, ax = plt.subplots(figsize=(14, 7))
     
-    plt.plot(model_df['Date'], model_df['Avg_Daily_Intake_Liters'], 
-             label='Actual Intake', color='#1f77b4', marker='o', markersize=4)
-    plt.plot(model_df['Date'], model_df['Rolling_Mean'], 
-             label='7-Day Expected Baseline', color='green', linestyle='--', alpha=0.6)
+    ax.plot(model_df['Date'], model_df['Avg_Daily_Intake_Liters'], 
+            label='Actual Intake', color='#1f77b4', marker='o', markersize=4)
+    ax.plot(model_df['Date'], model_df['Rolling_Mean'], 
+            label='7-Day Expected Baseline', color='green', linestyle='--', alpha=0.6)
     
     ml_anomalies = model_df[model_df['ML_Anomaly_Flag']]
-    plt.scatter(ml_anomalies['Date'], ml_anomalies['Avg_Daily_Intake_Liters'], 
-                color='purple', s=100, zorder=5, label='Isolation Forest Alert')
+    ax.scatter(ml_anomalies['Date'], ml_anomalies['Avg_Daily_Intake_Liters'], 
+               color='purple', s=100, zorder=5, label='Isolation Forest Alert')
     
-    plt.title('Advanced Analytics: Isolation Forest Anomaly Detection', fontsize=14)
-    plt.xlabel('Date', fontsize=12)
-    plt.ylabel('Average Daily Intake per Pig (Liters)', fontsize=12)
-    plt.legend(loc='upper left')
-    plt.grid(True, alpha=0.3)
+    ax.set_title('Advanced Analytics: Isolation Forest Anomaly Detection', fontsize=14)
+    ax.set_xlabel('Date', fontsize=12)
+    ax.set_ylabel('Average Daily Intake per Pig (Liters)', fontsize=12)
+    ax.legend(loc='upper left')
+    ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('phase3_ml_detection.png', dpi=300, bbox_inches='tight')
-    print("✓ Saved: phase3_ml_detection.png")
-    plt.close()
+    return fig
 
 
 def plot_prophet_forecast(m, forecast):
@@ -312,125 +302,202 @@ def plot_prophet_forecast(m, forecast):
     ax = fig.gca()
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('phase4_prophet_forecast.png', dpi=300, bbox_inches='tight')
-    print("✓ Saved: phase4_prophet_forecast.png")
-    plt.close()
+    return fig
 
 
 def plot_multivariate_detection(multi_model_df):
     """Visualize multivariate anomaly detection."""
-    plt.figure(figsize=(14, 7))
+    fig, ax = plt.subplots(figsize=(14, 7))
     
-    plt.plot(multi_model_df['Date'], multi_model_df['Avg_Daily_Intake_Liters'], 
-             label='Actual Intake', color='#1f77b4', marker='o', markersize=4)
-    plt.plot(multi_model_df['Date'], multi_model_df['Rolling_Mean'], 
-             label='7-Day Expected Baseline', color='green', linestyle='--', alpha=0.6)
+    ax.plot(multi_model_df['Date'], multi_model_df['Avg_Daily_Intake_Liters'], 
+            label='Actual Intake', color='#1f77b4', marker='o', markersize=4)
+    ax.plot(multi_model_df['Date'], multi_model_df['Rolling_Mean'], 
+            label='7-Day Expected Baseline', color='green', linestyle='--', alpha=0.6)
     
     multi_anomalies = multi_model_df[multi_model_df['Multi_ML_Anomaly_Flag']]
-    plt.scatter(multi_anomalies['Date'], multi_anomalies['Avg_Daily_Intake_Liters'], 
-                color='red', s=100, zorder=5, label='Multivariate Anomaly Alert')
+    ax.scatter(multi_anomalies['Date'], multi_anomalies['Avg_Daily_Intake_Liters'], 
+               color='red', s=100, zorder=5, label='Multivariate Anomaly Alert')
     
-    plt.title('Advanced Multivariate Anomaly Detection (Intake + Environment)', fontsize=14)
-    plt.xlabel('Date', fontsize=12)
-    plt.ylabel('Average Daily Intake per Pig (Liters)', fontsize=12)
-    plt.legend(loc='upper left')
-    plt.grid(True, alpha=0.3)
+    ax.set_title('Advanced Multivariate Anomaly Detection (Intake + Environment)', fontsize=14)
+    ax.set_xlabel('Date', fontsize=12)
+    ax.set_ylabel('Average Daily Intake per Pig (Liters)', fontsize=12)
+    ax.legend(loc='upper left')
+    ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig('phase5_multivariate_detection.png', dpi=300, bbox_inches='tight')
-    print("✓ Saved: phase5_multivariate_detection.png")
-    plt.close()
+    return fig
 
 
 # ============================================================================
-# REPORTING FUNCTIONS
-# ============================================================================
-
-def print_roi_report(metrics):
-    """Print formatted ROI and financial impact report."""
-    print("\n" + "="*70)
-    print("     AGRIBUSINESS FINANCIAL IMPACT & ROI REPORT                   ")
-    print("="*70)
-    print(f"Simulated Barn Size:          1,000 Pigs")
-    print(f"Cost of Water Leak (1 Day):   ${metrics['water_leak_cost']:,.2f}")
-    print("-"*70)
-    print(f"Traditional Management Cost:  ${metrics['traditional_cost']:,.2f} (Delayed intervention)")
-    print(f"Predictive IoT Barn Cost:     ${metrics['ml_cost']:,.2f} (Immediate intervention)")
-    print("-"*70)
-    print(f"Gross Financial Savings:      ${metrics['savings']:,.2f}")
-    print(f"Annual IoT System Investment: ${metrics['system_cost']:,.2f}")
-    print(f"Net Profit Saved per Barn:    ${metrics['net_profit']:,.2f}")
-    print(f"PROJECTED SYSTEM ROI:         {metrics['roi']:.1f}%")
-    print("="*70 + "\n")
-
-
-# ============================================================================
-# MAIN EXECUTION
+# STREAMLIT APP LAYOUT
 # ============================================================================
 
 def main():
-    """Execute the complete swine IoT analytics pipeline."""
+    # Header
+    st.markdown("""
+    # 🐷 Swine IoT Predictive Analytics
+    **Advanced Health & Water Consumption Monitoring System**
+    """)
     
-    print("\n" + "="*70)
-    print("    SWINE IoT ANALYTICS: PREDICTIVE HEALTH & WATER CONSUMPTION      ")
-    print("="*70)
+    st.markdown("""
+    An end-to-end predictive IoT analytics pipeline for commercial swine operations.
+    Detects subclinical illness and infrastructure failures through water consumption analysis.
+    """)
     
-    # Create output directory
-    os.makedirs('data', exist_ok=True)
-    os.makedirs('outputs', exist_ok=True)
+    # Sidebar
+    st.sidebar.header("⚙️ Configuration")
+    simulation_days = st.sidebar.slider("Days to Simulate", 30, 365, 120)
+    z_threshold = st.sidebar.slider("Z-Score Threshold", 1.0, 4.0, 2.5)
+    forecast_days = st.sidebar.slider("Forecast Days", 3, 30, 7)
     
-    # Phase 1: Data Simulation & Feature Engineering
-    print("\n[Phase 1] Simulating barn data and engineering features...")
-    df = simulate_barn_data(days=120)
-    df = engineer_features(df)
-    print("✓ Data simulation complete")
+    run_analysis = st.sidebar.button("▶️ Run Full Analysis", use_container_width=True)
     
-    # Phase 2: Statistical Anomaly Detection
-    print("\n[Phase 2] Applying rolling Z-score anomaly detection...")
-    df = rolling_zscore_detection(df)
-    anomalies_zscore = df[df['Anomaly_Flag'] == True]
-    print(f"✓ Detected {len(anomalies_zscore)} anomalies via Z-score")
+    if run_analysis:
+        st.balloons()
+        
+        # Phase 1
+        st.header("📊 Phase 1: Data Simulation & Feature Engineering")
+        with st.spinner('Simulating barn data...'):
+            df = simulate_barn_data(days=simulation_days)
+            df = engineer_features(df)
+            st.success('✓ Data simulation complete')
+            st.write(f"Generated {len(df)} days of data for a 1,000-head barn")
+        
+        # Phase 2
+        st.header("📈 Phase 2: Statistical Anomaly Detection (Z-Score)")
+        with st.spinner('Applying rolling Z-score detection...'):
+            df = rolling_zscore_detection(df, z_threshold=z_threshold)
+            anomalies_zscore = df[df['Anomaly_Flag'] == True]
+            st.success(f'✓ Detected {len(anomalies_zscore)} anomalies via Z-score')
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Z-Score Anomalies", len(anomalies_zscore))
+        with col2:
+            st.metric("Detection Rate", f"{(len(anomalies_zscore) / len(df) * 100):.1f}%")
+        
+        fig = plot_zscore_detection(df)
+        st.pyplot(fig)
+        
+        # Phase 3
+        st.header("🤖 Phase 3: Machine Learning Anomaly Detection (Isolation Forest)")
+        with st.spinner('Applying Isolation Forest...'):
+            model_df = ml_anomaly_detection(df)
+            anomalies_ml = model_df[model_df['ML_Anomaly_Flag']]
+            st.success(f'✓ Detected {len(anomalies_ml)} anomalies via ML')
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("ML Anomalies", len(anomalies_ml))
+        with col2:
+            st.metric("Detection Rate", f"{(len(anomalies_ml) / len(model_df) * 100):.1f}%")
+        
+        fig = plot_ml_detection(model_df)
+        st.pyplot(fig)
+        
+        # Phase 4
+        st.header("🔮 Phase 4: Time Series Forecasting (Prophet)")
+        with st.spinner('Training Prophet model...'):
+            m, forecast = prophet_forecasting(df, periods=forecast_days)
+            st.success('✓ Forecast generated')
+        
+        fig = plot_prophet_forecast(m, forecast)
+        st.pyplot(fig)
+        
+        # Phase 5
+        st.header("🔬 Phase 5: Multivariate Anomaly Detection")
+        with st.spinner('Applying multivariate analysis...'):
+            multi_model_df = multivariate_ml_detection(df)
+            anomalies_multi = multi_model_df[multi_model_df['Multi_ML_Anomaly_Flag']]
+            st.success(f'✓ Detected {len(anomalies_multi)} multivariate anomalies')
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Multivariate Anomalies", len(anomalies_multi))
+        with col2:
+            st.metric("Detection Rate", f"{(len(anomalies_multi) / len(multi_model_df) * 100):.1f}%")
+        
+        fig = plot_multivariate_detection(multi_model_df)
+        st.pyplot(fig)
+        
+        # Phase 6
+        st.header("💰 Phase 6: Financial Impact & ROI Analysis")
+        with st.spinner('Calculating ROI metrics...'):
+            roi_metrics = calculate_roi_metrics()
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Gross Savings", f"${roi_metrics['savings']:,.0f}")
+        with col2:
+            st.metric("System Cost", f"${roi_metrics['system_cost']:,.0f}")
+        with col3:
+            st.metric("Net Profit", f"${roi_metrics['net_profit']:,.0f}")
+        with col4:
+            st.metric("ROI", f"{roi_metrics['roi']:.1f}%", delta="Annual")
+        
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("### Traditional Management")
+            st.write(f"**Cost:** ${roi_metrics['traditional_cost']:,.2f}")
+            st.caption("Delayed disease detection (4+ days)")
+        
+        with col2:
+            st.markdown("### Predictive IoT System")
+            st.write(f"**Cost:** ${roi_metrics['ml_cost']:,.2f}")
+            st.caption("Immediate intervention (1 day)")
+        
+        # Data Export
+        st.header("📥 Download Results")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            csv = df.to_csv(index=False)
+            st.download_button(
+                label="📊 Z-Score Data",
+                data=csv,
+                file_name="zscore_data.csv",
+                mime="text/csv"
+            )
+        
+        with col2:
+            csv = model_df.to_csv(index=False)
+            st.download_button(
+                label="🤖 ML Anomalies",
+                data=csv,
+                file_name="ml_anomalies.csv",
+                mime="text/csv"
+            )
+        
+        with col3:
+            csv = forecast.to_csv(index=False)
+            st.download_button(
+                label="🔮 Forecast Data",
+                data=csv,
+                file_name="forecast.csv",
+                mime="text/csv"
+            )
+        
+        with col4:
+            csv = multi_model_df.to_csv(index=False)
+            st.download_button(
+                label="🔬 Multivariate Data",
+                data=csv,
+                file_name="multivariate_data.csv",
+                mime="text/csv"
+            )
     
-    # Phase 3: ML Anomaly Detection
-    print("\n[Phase 3] Applying Isolation Forest ML detection...")
-    model_df = ml_anomaly_detection(df)
-    anomalies_ml = model_df[model_df['ML_Anomaly_Flag']]
-    print(f"✓ Detected {len(anomalies_ml)} anomalies via Isolation Forest")
-    
-    # Phase 4: Time Series Forecasting
-    print("\n[Phase 4] Generating time series forecast with Prophet...")
-    m, forecast = prophet_forecasting(df, periods=7)
-    print("✓ Forecast generated for next 7 days")
-    
-    # Phase 5: Multivariate Detection
-    print("\n[Phase 5] Applying multivariate anomaly detection...")
-    multi_model_df = multivariate_ml_detection(df)
-    anomalies_multi = multi_model_df[multi_model_df['Multi_ML_Anomaly_Flag']]
-    print(f"✓ Detected {len(anomalies_multi)} anomalies via multivariate model")
-    
-    # Phase 6: ROI Analysis
-    print("\n[Phase 6] Calculating financial impact and ROI...")
-    roi_metrics = calculate_roi_metrics()
-    print_roi_report(roi_metrics)
-    
-    # Generate Visualizations
-    print("\n[Visualization] Generating charts...")
-    plot_raw_data(df)
-    plot_zscore_detection(df)
-    plot_ml_detection(model_df)
-    plot_prophet_forecast(m, forecast)
-    plot_multivariate_detection(multi_model_df)
-    
-    # Export Results
-    print("\n[Export] Saving results to CSV...")
-    df.to_csv('data/processed_barn_alerts.csv', index=False)
-    model_df.to_csv('data/ml_anomalies.csv', index=False)
-    forecast.to_csv('data/forecast.csv', index=False)
-    multi_model_df.to_csv('data/multivariate_anomalies.csv', index=False)
-    print("✓ Results exported to data/ directory")
-    
-    print("\n" + "="*70)
-    print("    Pipeline execution complete!")
-    print("="*70 + "\n")
+    else:
+        st.info("👈 Click **Run Full Analysis** to start the pipeline")
+        
+        st.markdown("""
+        ### 📋 Pipeline Phases
+        1. **Data Simulation** - Generate realistic barn water consumption data
+        2. **Z-Score Detection** - Statistical anomaly detection
+        3. **Isolation Forest** - Machine learning anomaly detection
+        4. **Prophet Forecast** - Time series prediction
+        5. **Multivariate Detection** - Multi-feature anomaly analysis
+        6. **ROI Analysis** - Financial impact calculation
+        """)
 
 
 if __name__ == '__main__':
