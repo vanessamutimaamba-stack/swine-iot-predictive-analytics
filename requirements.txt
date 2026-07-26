@@ -1,6 +1,14 @@
-streamlit==1.40.0
-pandas==2.2.0
-numpy==1.26.0
-matplotlib==3.9.0
-scikit-learn==1.5.0
-prophet==1.1.5
+# Project dependencies for Swine IoT Predictive Analytics
+
+streamlit>=1.0
+pandas
+numpy
+matplotlib
+scikit-learn
+prophet
+
+# Notes:
+# - Prophet may require additional system dependencies or a conda install for an easier setup.
+# - To install with pip: `pip install -r requirements.txt`
+# - For conda (recommended for prophet):
+#     conda create -n swine -c conda-forge python=3.10 streamlit pandas numpy matplotlib scikit-learn prophet

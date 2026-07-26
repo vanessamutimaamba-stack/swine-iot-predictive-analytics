@@ -7,11 +7,27 @@ Streamlit Web App for predictive IoT analytics pipeline
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import StandardScaler
-from prophet import Prophet
 import warnings
+
+# Defensive imports for optional/heavier dependencies
+try:
+    import matplotlib.pyplot as plt
+except Exception as e:
+    st.error("matplotlib is not installed. Install it with `pip install matplotlib` or `pip install -r requirements.txt` and re-run the app.")
+    raise
+
+try:
+    from sklearn.ensemble import IsolationForest
+    from sklearn.preprocessing import StandardScaler
+except Exception as e:
+    st.error("scikit-learn is not installed. Install it with `pip install scikit-learn` or `pip install -r requirements.txt` and re-run the app.")
+    raise
+
+try:
+    from prophet import Prophet
+except Exception as e:
+    st.error("prophet is not installed. Install it with `pip install prophet` or use conda-forge (`conda install -c conda-forge prophet`) and re-run the app.")
+    raise
 
 warnings.filterwarnings('ignore')
 
